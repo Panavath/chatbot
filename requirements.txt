@@ -1,0 +1,9 @@
+# Essential dependencies for RAG Chatbot
+streamlit>=1.28.0
+psycopg2-binary>=2.9.9
+pandas>=2.1.4
+openai>=1.3.8
+google-generativeai>=0.3.2
+chromadb==0.4.15
+python-dotenv>=1.0.0
+numpy>=1.25.2 
