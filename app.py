@@ -1,11 +1,13 @@
 """
-Simple RAG Chatbot App
-A minimal Streamlit interface for the RAG chatbot
+Multi-Database RAG Agent with Routing
+A Streamlit interface for the RAG agent with intelligent database routing
 """
 import streamlit as st
 import logging
 from datetime import datetime
+from typing import Dict, Any
 from rag_service import RAGService
+from config import Config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -13,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 # Page configuration
 st.set_page_config(
-    page_title="RAG Chatbot",
-    page_icon="🤖",
+    page_title="RAG Agent with Database Routing",
+    page_icon="📚",
     layout="wide"
 )
 
@@ -35,147 +37,62 @@ st.markdown("""
         border-radius: 10px;
         margin: 1rem 0;
     }
+    .database-tab {
+        background: #ffffff;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+        border-left: 4px solid #1e3c72;
+    }
+    .routing-info {
+        background: #e8f4f8;
+        padding: 0.8rem;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+        border-left: 4px solid #17a2b8;
+    }
 </style>
 """, unsafe_allow_html=True)
 
+# Auto-initialize on app start
 @st.cache_resource
-def initialize_rag_service():
-    """Initialize the RAG service with caching"""
+def get_rag_service():
     try:
-        logger.info("Initializing RAG service...")
         service = RAGService()
-        return service, None
+        service.initialize()  # No args, uses config/.env
+        return service
+    except RuntimeError as e:
+        error_msg = str(e)
+        if "rate limits" in error_msg.lower() or "quota" in error_msg.lower():
+            st.error("⚠️ **Service Unavailable**\n\nYour OpenAI account has exceeded its quota. Please check your billing details or try again later.")
+        elif "event loop" in error_msg.lower() or "async" in error_msg.lower():
+            st.error("⚠️ **Configuration Issue**\n\nGemini fallback is not compatible with the current environment. Please ensure you have a valid OpenAI API key with sufficient quota.")
+        else:
+            st.error(f"⚠️ **Initialization Error**\n\n{error_msg}")
+        return None
     except Exception as e:
-        error_msg = f"Failed to initialize RAG service: {str(e)}"
-        logger.error(error_msg)
-        return None, error_msg
+        st.error(f"⚠️ **Unexpected Error**\n\nAn unexpected error occurred: {str(e)}")
+        return None
 
-def display_sidebar(rag_service):
-    """Display system status in sidebar"""
-    st.sidebar.markdown("## 📊 System Status")
-    
-    if rag_service:
-        status = rag_service.get_status()
-        
-        # Database status
-        if status["database_connected"]:
-            st.sidebar.success("🟢 Database Connected")
-        else:
-            st.sidebar.warning("🟡 Using Sample Data")
-        
-        # OpenAI status
-        if status["openai_available"]:
-            st.sidebar.success("🟢 OpenAI Available")
-        else:
-            st.sidebar.warning("🟡 Basic Responses Only")
-        
-        # Vector store status
-        if status["vector_store_ready"]:
-            st.sidebar.success("🟢 Vector Store Ready")
-        else:
-            st.sidebar.error("🔴 Vector Store Error")
-        
-        # Document count
-        st.sidebar.info(f"📄 Documents: {status['documents_loaded']}")
-    else:
-        st.sidebar.error("🔴 Service Not Available")
+rag_service = get_rag_service()
 
-def main():
-    """Main application function"""
-    # Header
-    st.markdown(
-        '<div class="main-header"><h1>🤖 RAG Chatbot</h1><p>Ask me about Cambodian government organizations</p></div>',
-        unsafe_allow_html=True
-    )
-    
-    # Initialize RAG service
-    rag_service, error = initialize_rag_service()
-    
-    if error:
-        st.error(f"❌ {error}")
-        st.info("Please check your configuration:")
-        st.code("""
-1. Create a .env file with:
-   GEMINI_API_KEY=your_gemini_api_key
-   OPENAI_API_KEY=your_openai_api_key (optional)
+# Check if service initialized successfully
+if rag_service is None:
+    st.stop()  # Stop the app if service failed to initialize
 
-2. For database connection (optional):
-   DB_HOST=localhost
-   DB_NAME=your_database
-   DB_USER=your_username
-   DB_PASSWORD=your_password
-        """)
-        return
-    
-    # Display sidebar
-    display_sidebar(rag_service)
-    
-    # Initialize chat history
-    if "messages" not in st.session_state:
-        st.session_state.messages = [
-            {
-                "role": "assistant",
-                "content": "Hello! I'm here to help you with information about Cambodian government organizations. What would you like to know?",
-                "timestamp": datetime.now().isoformat()
-            }
-        ]
-    
-    # Display chat history
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-    
-    # Chat input
-    if prompt := st.chat_input("Type your question here..."):
-        # Add user message
-        st.session_state.messages.append({
-            "role": "user",
-            "content": prompt,
-            "timestamp": datetime.now().isoformat()
-        })
-        
-        # Display user message
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        
-        # Generate response
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                result = rag_service.query(prompt)
-                
-                # Display response
-                st.markdown(result["response"])
-                
-                # Show sources info
-                if result["sources"] > 0:
-                    st.caption(f"📚 Based on {result['sources']} relevant sources")
-                
-                # Add to chat history
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": result["response"],
-                    "timestamp": datetime.now().isoformat()
-                })
-    
-    # Clear chat button
-    if st.sidebar.button("🗑️ Clear Chat"):
-        st.session_state.messages = [
-            {
-                "role": "assistant",
-                "content": "Hello! I'm here to help you with information about Cambodian government organizations. What would you like to know?",
-                "timestamp": datetime.now().isoformat()
-            }
-        ]
-        st.rerun()
-    
-    # Footer
-    st.markdown("---")
-    st.markdown(
-        f"<div style='text-align: center; color: #666; font-size: 0.8em;'>"
-        f"Simple RAG Chatbot | Powered by Google Gemini & OpenAI | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        f"</div>",
-        unsafe_allow_html=True
-    )
+st.title("RAG Chatbot")
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "assistant", "content": "Hello! Ask me anything about sub_orgs."}
+    ]
 
-if __name__ == "__main__":
-    main() 
+for msg in st.session_state.messages:
+    st.chat_message(msg["role"]).markdown(msg["content"])
+
+if prompt := st.chat_input("Type your question..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            result = rag_service.query(prompt)
+            st.markdown(result["response"])
+            st.session_state.messages.append({"role": "assistant", "content": result["response"]}) 

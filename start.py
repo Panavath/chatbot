@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple startup script for RAG Chatbot
+Startup script for Multi-Database RAG Agent
 """
 import os
 import sys
@@ -10,11 +10,10 @@ def check_requirements():
     """Check if requirements are installed"""
     try:
         import streamlit
-        import openai
-        import google.generativeai
+        import langchain
+        import langchain_openai
         import chromadb
-        import psycopg2
-        import pandas
+        import agno
         print("✅ All required packages are installed")
         return True
     except ImportError as e:
@@ -29,23 +28,42 @@ def check_requirements():
             return False
 
 def check_env_file():
-    """Check if .env file exists"""
-    if os.path.exists('.env'):
-        print("✅ .env file found")
-        return True
-    else:
-        print("❌ .env file not found")
-        print("\n📝 Please create a .env file with:")
-        print("GEMINI_API_KEY=your_gemini_api_key")
-        print("OPENAI_API_KEY=your_openai_api_key  # optional")
-        print("\n🔗 Get Gemini API key: https://makersuite.google.com/app/apikey")
-        print("🔗 Get OpenAI API key: https://platform.openai.com/api-keys")
+    """Check if .env file exists and has required variables"""
+    if not os.path.exists('.env'):
+        print("⚠️  No .env file found")
+        print("📝 Creating sample .env file...")
+        
+        sample_env = """# OpenAI Configuration (Required)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Gemini Configuration (Required)
+GEMINI_API_KEY=your_gemini_api_key_here
+"""
+        
+        with open('.env', 'w') as f:
+            f.write(sample_env)
+        
+        print("✅ Created .env file")
+        print("🔧 Please edit .env file with your API keys")
+        print("   - OpenAI API Key: https://platform.openai.com/api-keys")
+        print("   - Gemini API Key: https://makersuite.google.com/app/apikey")
         return False
+    
+    print("✅ .env file found")
+    return True
+
+def get_database_names():
+    """Get database names from config"""
+    try:
+        from config import Config
+        return [config.name for config in Config.COLLECTIONS.values()]
+    except ImportError:
+        return ["Products", "Support", "Finance"]  # Fallback
 
 def main():
     """Main startup function"""
-    print("🤖 RAG Chatbot Startup")
-    print("=" * 40)
+    print("📚 RAG Agent with Database Routing - Startup")
+    print("=" * 50)
     
     # Check requirements
     if not check_requirements():
@@ -55,18 +73,22 @@ def main():
     if not check_env_file():
         return
     
-    print("\n🚀 Starting RAG Chatbot...")
+    # Get database names
+    db_names = get_database_names()
+    
+    print("\n🚀 Starting RAG Agent...")
     print("🌐 Opening at: http://localhost:8501")
+    print(f"📋 Available databases: {', '.join(db_names)}")
     print("⭐ Press Ctrl+C to stop")
-    print("-" * 40)
+    print("-" * 50)
     
     try:
         # Start Streamlit
         subprocess.run([sys.executable, "-m", "streamlit", "run", "app.py"], check=True)
     except KeyboardInterrupt:
-        print("\n👋 Chatbot stopped")
+        print("\n👋 RAG Agent stopped")
     except Exception as e:
-        print(f"\n❌ Error starting chatbot: {e}")
+        print(f"\n❌ Error starting RAG Agent: {e}")
 
 if __name__ == "__main__":
     main() 

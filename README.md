@@ -1,17 +1,42 @@
-# Simple RAG Chatbot
+# Multi-Database RAG Agent with Routing
 
-A minimal Retrieval-Augmented Generation (RAG) chatbot built with Streamlit that connects to your database to provide information about Cambodian government organizations.
+An intelligent Retrieval-Augmented Generation (RAG) agent that automatically routes queries to specialized databases and provides accurate responses with web search fallback.
 
-## Features
+## 🚀 Features
 
-- 🤖 **RAG-powered responses** using Google Gemini embeddings and OpenAI
-- 💾 **Database integration** connects to your PostgreSQL database
-- 🔍 **Vector search** using ChromaDB for semantic document retrieval
-- 🌐 **Clean Streamlit interface** with chat functionality
-- 📚 **Fallback responses** when OpenAI is unavailable
-- 📊 **Status monitoring** to check system health
+- 🎯 **Intelligent Query Routing** - Automatically determines the best database for each query
+- 📚 **Multi-Database Support** - Products, Support, and Finance specialized databases
+- 🤖 **Advanced RAG Pipeline** - Uses OpenAI embeddings and LLM for high-quality responses
+- 🔍 **Vector Similarity Search** - Powered by Qdrant vector database for semantic retrieval
+- 🌐 **Web Search Fallback** - DuckDuckGo integration when no relevant documents found
+- 📄 **PDF Document Processing** - Upload and process multiple PDF documents
+- 💬 **Interactive Chat Interface** - Clean Streamlit UI with real-time routing information
+- 📊 **Status Monitoring** - Real-time system health and database status
 
-## Quick Start
+## 🏗️ Architecture
+
+The application follows a modular architecture:
+
+```
+📁 Project Structure
+├── app.py              # Streamlit web interface
+├── rag_service.py      # Core RAG service with all components
+├── config.py           # Configuration and settings
+├── start.py            # Startup script
+├── requirements.txt    # Python dependencies
+├── .env                # Environment variables (you create this)
+└── README.md           # This file
+```
+
+### Key Components
+
+1. **DocumentProcessor** - Handles PDF processing and text chunking
+2. **QueryRouter** - Routes queries using vector similarity + LLM fallback
+3. **ResponseGenerator** - Generates responses from retrieved documents
+4. **WebSearchAgent** - Provides web search fallback using LangGraph
+5. **RAGService** - Orchestrates all components
+
+## 🛠️ Quick Start
 
 ### 1. Install Dependencies
 
@@ -23,105 +48,238 @@ pip install -r requirements.txt
 
 Create a `.env` file in the project root:
 
-```bash
-# Required
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# Optional (for better responses)
+```env
+# OpenAI Configuration (Required)
 OPENAI_API_KEY=your_openai_api_key_here
 
-# Optional (database connection - uses sample data if not provided)
-DB_HOST=localhost
-DB_NAME=your_database
-DB_USER=your_username
-DB_PASSWORD=your_password
-DB_PORT=5432
+# Qdrant Configuration (Required) 
+QDRANT_URL=https://your-cluster.qdrant.tech
+QDRANT_API_KEY=your_qdrant_api_key_here
 ```
 
-### 3. Run the Chatbot
+### 3. Run the Application
 
+Using the startup script:
+```bash
+python start.py
+```
+
+Or directly with Streamlit:
 ```bash
 streamlit run app.py
 ```
 
-The chatbot will be available at http://localhost:8501
+The application will be available at http://localhost:8501
 
-## How It Works
+## 📋 Database Collections
 
-1. **Database Connection**: Connects to your PostgreSQL database and loads documents from the `sub_org` table
-2. **Document Indexing**: Uses Google Gemini to generate embeddings and stores them in ChromaDB
-3. **Query Processing**: When you ask a question, it:
-   - Generates an embedding for your question
-   - Searches for similar documents using vector similarity
-   - Uses OpenAI (or fallback logic) to generate a response based on relevant documents
+The system supports three specialized databases:
 
-## File Structure
+### 🛍️ Products Database
+- **Purpose**: Product information, specifications, features
+- **Use Cases**: Product manuals, specifications, feature details
+- **Routing Triggers**: "product", "features", "specifications", "manual"
 
+### 🆘 Support Database  
+- **Purpose**: Customer support, FAQs, troubleshooting guides
+- **Use Cases**: Help documentation, troubleshooting, customer service
+- **Routing Triggers**: "help", "support", "troubleshooting", "guide", "FAQ"
+
+### 💰 Finance Database
+- **Purpose**: Financial data, reports, costs, revenue
+- **Use Cases**: Financial reports, pricing, revenue data, investments
+- **Routing Triggers**: "cost", "price", "revenue", "financial", "budget"
+
+## 🔄 How It Works
+
+### Query Processing Flow
+
+1. **Query Input** - User enters a question
+2. **Vector Routing** - System searches all databases for similarity scores
+3. **Confidence Check** - If confidence > threshold, route to best database
+4. **LLM Fallback** - If low confidence, use LLM-based routing
+5. **Document Retrieval** - Retrieve relevant documents from chosen database
+6. **Response Generation** - Generate answer using retrieved context
+7. **Web Search Fallback** - If no relevant documents, use web search
+
+### Routing Logic
+
+```python
+# Vector Similarity Routing (Primary)
+best_score = max(similarity_scores_across_databases)
+if best_score >= confidence_threshold:
+    return best_database
+
+# LLM Routing (Fallback)
+routing_decision = llm_agent.analyze(query)
+return routing_decision
+
+# Web Search (Last Resort)
+if no_suitable_database:
+    return web_search_results
 ```
-chatbot/
-├── app.py              # Main Streamlit application
-├── rag_service.py      # RAG service (database, embeddings, vector store)
-├── config.py           # Configuration and settings
-├── requirements.txt    # Python dependencies
-├── .env               # Environment variables (you create this)
-├── data/              # ChromaDB vector database storage
-└── logs/              # Application logs
-```
 
-## Configuration
+## 🔧 Configuration
 
-### API Keys
+### API Keys Required
 
-- **GEMINI_API_KEY** (Required): Get from [Google AI Studio](https://makersuite.google.com/app/apikey)
-- **OPENAI_API_KEY** (Optional): Get from [OpenAI Platform](https://platform.openai.com/api-keys)
+- **OpenAI API Key**: Get from [OpenAI Platform](https://platform.openai.com/api-keys)
+  - Used for embeddings (`text-embedding-3-small`)
+  - Used for chat completions (`gpt-4o`)
+  - Used for query routing agent
 
-### Database
+- **Qdrant API Key**: Get from [Qdrant Cloud](https://cloud.qdrant.io/)
+  - Vector database for document storage
+  - Semantic similarity search
 
-If you don't provide database credentials, the chatbot will use sample data about Cambodian government ministries.
-
-To connect to your database, ensure:
-- PostgreSQL is running
-- Database contains a `sub_org` table
-- User has read permissions
-
-### Settings
+### Advanced Configuration
 
 Edit `config.py` to customize:
-- `MAX_RESULTS`: Number of documents to retrieve (default: 10)
-- `MAX_TOKENS`: Maximum response length (default: 800)
-- `TEMPERATURE`: Response creativity 0.0-1.0 (default: 0.3)
 
-## Troubleshooting
+```python
+# Model Settings
+EMBEDDING_MODEL = "text-embedding-3-small"
+CHAT_MODEL = "gpt-4o" 
+LLM_TEMPERATURE = 0
+
+# Document Processing
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 200
+
+# Retrieval Settings
+MAX_RETRIEVAL_DOCS = 4
+SIMILARITY_THRESHOLD = 0.5
+```
+
+## 📖 Usage Guide
+
+### 1. Initialize the Service
+
+1. Open the application
+2. Enter your API keys in the sidebar
+3. Click "🚀 Initialize Service"
+4. Wait for successful initialization
+
+### 2. Upload Documents
+
+1. Go to the "Document Management" section
+2. Select the appropriate database tab
+3. Upload PDF files
+4. Click "Process Documents"
+
+### 3. Start Chatting
+
+1. Type your question in the chat input
+2. Watch the routing decision in real-time
+3. View the response with source information
+4. See which database was used
+
+### Example Queries
+
+**Products Database:**
+- "What are the specifications of the new laptop?"
+- "Tell me about the features of product X"
+- "Where can I find the user manual?"
+
+**Support Database:**
+- "How do I troubleshoot connection issues?"
+- "What should I do if the system crashes?"
+- "Where can I find installation guides?"
+
+**Finance Database:**
+- "What was our revenue last quarter?"
+- "Show me the cost breakdown for project Y"
+- "What are the pricing details for service Z?"
+
+## 🔍 Troubleshooting
 
 ### Common Issues
 
-**"GEMINI_API_KEY is required"**
-- Create a `.env` file with your Gemini API key
+**"Service not initialized"**
+- Check that all API keys are entered correctly
+- Verify Qdrant URL format (should include https://)
+- Check internet connection
 
-**"ChromaDB schema error"**
-- Delete the `data/chromadb` folder and restart the app
+**"Failed to connect to Qdrant"**
+- Verify Qdrant URL and API key
+- Check if your Qdrant cluster is running
+- Ensure proper network access
 
-**"Database connection failed"**
-- Check your database credentials in `.env`
-- The app will use sample data if database is unavailable
+**"No relevant documents found"**
+- Upload more documents to the databases
+- Try rephrasing your question
+- System will automatically fall back to web search
 
-**"No documents loaded"**
-- Ensure your database has a `sub_org` table with data
-- Check database permissions
+**Routing not working properly**
+- Check that documents are uploaded to correct databases
+- Try more specific keywords in your queries
+- Review routing triggers in database descriptions
 
 ### Getting Help
 
-1. Check the sidebar status indicators in the web interface
-2. Look at console output for detailed error messages
-3. Ensure all environment variables are set correctly
+1. Check the sidebar status indicators
+2. Look at console output for detailed error messages  
+3. Verify all environment variables are set correctly
+4. Make sure all required dependencies are installed
 
-## Requirements
+## 🧪 Development
 
-- Python 3.8+
-- PostgreSQL (optional)
-- Google Gemini API key
-- OpenAI API key (optional but recommended)
+### Project Structure
+
+```
+rag_service.py
+├── DocumentProcessor     # PDF processing and chunking
+├── QueryRouter          # Query routing logic
+├── ResponseGenerator    # Response generation from docs
+├── WebSearchAgent      # Web search fallback
+└── RAGService          # Main orchestrator
+
+app.py
+├── init_session_state()      # Session management
+├── display_sidebar()         # Configuration UI
+├── display_document_upload() # Document management UI
+└── display_chat_interface()  # Chat interface
+```
+
+### Adding New Databases
+
+1. Update `config.py` with new database configuration
+2. Add routing logic in `QueryRouter`
+3. Update UI tabs in `display_document_upload()`
+
+### Customizing Routing
+
+Edit the routing agent instructions in `QueryRouter._create_routing_agent()`:
+
+```python
+instructions=[
+    "Your custom routing rules here",
+    "1. For topic X → return 'database_name'",
+    "2. For topic Y → return 'other_database'",
+    # ...
+]
+```
+
+## 📚 Dependencies
+
+### Core Frameworks
+- **Streamlit**: Web interface
+- **LangChain**: RAG pipeline and document processing
+- **LangGraph**: Agent framework for web search
+
+### AI/ML Services  
+- **OpenAI**: Embeddings and chat completions
+- **Qdrant**: Vector database
+- **Agno**: Agent framework for routing
+
+### Document Processing
+- **PyPDF**: PDF text extraction
+- **RecursiveCharacterTextSplitter**: Text chunking
+
+## 📄 License
+
+This project is open source. Feel free to use, modify, and distribute.
 
 ---
 
-**Ready to use!** Just run `streamlit run app.py` and start chatting with your RAG-powered assistant. 
+**Ready to use!** Just run `python start.py` and start chatting with your intelligent RAG agent. 🚀 
