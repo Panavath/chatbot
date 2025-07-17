@@ -61,21 +61,7 @@ class DatabaseService:
     def _load_sample_data(self) -> None:
         """Load sample government organization data"""
         self.documents = [
-            "id: 1, en_name: Ministry of Education, kh_name: ក្រសួងអប់រំ, description: Responsible for education policy and management, category: Education",
-            "id: 2, en_name: Ministry of Health, kh_name: ក្រសួងសុខាភិបាល, description: Oversees healthcare system and public health, category: Healthcare",
-            "id: 3, en_name: Ministry of Interior, kh_name: ក្រសួងមហាផ្ទៃ, description: Manages internal affairs and local administration, category: Administration",
-            "id: 4, en_name: Ministry of Agriculture, kh_name: ក្រសួងកសិកម្ម, description: Agricultural development and food security, category: Agriculture",
-            "id: 5, en_name: Ministry of Commerce, kh_name: ក្រសួងពាណិជ្ជកម្ម, description: Trade promotion and commercial policy, category: Commerce",
-            "id: 6, en_name: Ministry of Tourism, kh_name: ក្រសួងទេសចរណ៍, description: Tourism development and promotion, category: Tourism",
-            "id: 7, en_name: Ministry of Information, kh_name: ក្រសួងព័ត៌មាន, description: Information and communication management, category: Information",
-            "id: 8, en_name: Ministry of Justice, kh_name: ក្រសួងយុត្តិធម៌, description: Legal affairs and judicial system oversight, category: Justice",
-            "id: 9, en_name: Ministry of Defense, kh_name: ក្រសួងការពារជាតិ, description: National defense and military affairs, category: Defense",
-            "id: 10, en_name: Ministry of Economy, kh_name: ក្រសួងសេដ្ឋកិច្ច, description: Economic planning and financial policy, category: Economy",
-            "id: 11, en_name: Ministry of Environment, kh_name: ក្រសួងបរិស្ថាន, description: Environmental protection and natural resource management, category: Environment",
-            "id: 12, en_name: Ministry of Public Works, kh_name: ក្រសួងសាធារណកម្ម, description: Infrastructure development and public works, category: Infrastructure",
-            "id: 13, en_name: Ministry of Labor, kh_name: ក្រសួងការងារ, description: Labor relations and employment policies, category: Labor",
-            "id: 14, en_name: Ministry of Social Affairs, kh_name: ក្រសួងកិច្ចការសង្គម, description: Social welfare and community development, category: Social Affairs",
-            "id: 15, en_name: Ministry of Culture, kh_name: ក្រសួងវប្បធម៌, description: Cultural preservation and arts promotion, category: Culture"
+            "Sample Data hehe"
         ]
     
     def get_documents(self) -> List[str]:
