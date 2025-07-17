@@ -1,243 +1,216 @@
 """
-RAG Service for Multi-Database Agent with Routing
-Handles document processing, vector storage, query routing, and response generation
+RAG Service for Database Agent
+Handles document processing, vector storage, and response generation for sub_org database
 """
 import logging
 import os
-import shutil
 from typing import List, Dict, Any, Optional
-import psycopg2
-import pandas as pd
-from langchain_core.documents import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains import create_retrieval_chain
-from langchain.prompts import ChatPromptTemplate
-from openai import RateLimitError, APIError
+from datetime import datetime
+
+# Import our modular services
 from config import Config
+from database import DatabaseService
+from embedding import EmbeddingService
+from vectorstore import VectorStore
+from llm import LLMService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class RAGService:
-    """RAG service for a single database (sub_orgs table) with fallback support"""
+    """RAG service for sub_org database with fallback support"""
+    
     def __init__(self):
-        self.embeddings = None
-        self.llm = None
-        self.vectorstore = None
+        self.database_service = None
+        self.embedding_service = None
+        self.vector_store = None
+        self.llm_service = None
         self._initialized = False
-        self._using_openai = True  # Track which service were using
-
-    def initialize(self):
-        Config.validate()
         
-        # Try OpenAI first, fall back to Gemini if needed
-        if Config.OPENAI_API_KEY:
-            try:
-                os.environ["OPENAI_API_KEY"] = Config.OPENAI_API_KEY
-                self.embeddings = OpenAIEmbeddings(model=Config.EMBEDDING_MODEL)
-                self.llm = ChatOpenAI(temperature=Config.LLM_TEMPERATURE)
-                self._using_openai = True
-                logger.info("Using OpenAI for embeddings and LLM")
-            except Exception as e:
-                logger.warning(f"Failed to initialize OpenAI: {e}")
-                if Config.GEMINI_API_KEY:
-                    self._fallback_to_gemini()
-                else:
-                    raise RuntimeError("OpenAI failed and no Gemini fallback available")
-        elif Config.GEMINI_API_KEY:
-            self._fallback_to_gemini()
-        else:
-            raise RuntimeError("No API keys available")
-        
-        # Set up ChromaDB
-        os.makedirs(Config.CHROMADB_DIR, exist_ok=True)
-        
-        # Load and chunk documents from sub_orgs table
-        docs = self._load_documents_from_db()
-        texts = self._chunk_documents(docs)
-        
-        # Create Chroma vectorstore
-        self.vectorstore = Chroma(
-            collection_name=Config.COLLECTION_NAME,
-            embedding_function=self.embeddings,
-            persist_directory=Config.CHROMADB_DIR
-        )
-        
-        # Try to add documents, with fallback if rate limited
-        if texts:
-            try:
-                self.vectorstore.add_documents(texts)
-            except RateLimitError as e:
-                logger.error(f"OpenAI rate limit exceeded during initialization: {e}")
-                if not self._using_openai:
-                    raise RuntimeError("Service unavailable due to rate limits")
-                
-                # Try to fall back to Gemini
-                try:
-                    logger.info("Attempting to fall back to Gemini due to OpenAI rate limit during initialization")
-                    self._fallback_to_gemini()
-                    # Recreate vectorstore with new embeddings
-                    self.vectorstore = Chroma(
-                        collection_name=Config.COLLECTION_NAME,
-                        embedding_function=self.embeddings,
-                        persist_directory=Config.CHROMADB_DIR
-                    )
-                    self.vectorstore.add_documents(texts)
-                except Exception as fallback_error:
-                    logger.error(f"Fallback to Gemini failed during initialization: {fallback_error}")
-                    raise RuntimeError("Service unavailable due to rate limits")
-            except APIError as e:
-                logger.error(f"OpenAI API error during initialization: {e}")
-                if not self._using_openai:
-                    raise RuntimeError("Service temporarily unavailable")
-                
-                # Try to fall back to Gemini
-                try:
-                    logger.info("Attempting to fall back to Gemini due to OpenAI API error during initialization")
-                    self._fallback_to_gemini()
-                    # Recreate vectorstore with new embeddings
-                    self.vectorstore = Chroma(
-                        collection_name=Config.COLLECTION_NAME,
-                        embedding_function=self.embeddings,
-                        persist_directory=Config.CHROMADB_DIR
-                    )
-                    self.vectorstore.add_documents(texts)
-                except Exception as fallback_error:
-                    logger.error(f"Fallback to Gemini failed during initialization: {fallback_error}")
-                    raise RuntimeError("Service temporarily unavailable")
-        
-        self._initialized = True
-        service_name = "OpenAI" if self._using_openai else "Gemini"
-        logger.info(f"RAGService initialized with {len(texts)} chunks using {service_name}")
-
-    def _fallback_to_gemini(self):
-        """Fallback to Gemini when OpenAI is unavailable"""
+    def initialize(self) -> bool:
+        """Initialize all RAG components"""
         try:
-            os.environ["GOOGLE_API_KEY"] = Config.GEMINI_API_KEY
-            # Force synchronous mode to avoid event loop issues
-            os.environ["GOOGLE_API_USE_CLIENT_CERTIFICATE"] = "false"
+            Config.validate()
             
-            # Try to initialize Gemini with error handling for event loop issues
-            try:
-                self.embeddings = GoogleGenerativeAIEmbeddings(
-                    model="models/embedding-1"
-                )
-                self.llm = ChatGoogleGenerativeAI(
-                    model="gemini-1.5-flash",       temperature=Config.LLM_TEMPERATURE,
-                    convert_system_message_to_human=True
-                )
-                self._using_openai = False
-                logger.info("Falling back to Gemini for embeddings and LLM")
-            except RuntimeError as e:
-                if "event loop" in str(e).lower() or "nocurrent event loop" in str(e):
-                    logger.error("Gemini requires async event loop which is not available in Streamlit")
-                    raise RuntimeError("Gemini is not compatible with current environment (async event loop required)")
-                else:
-                    raise e
-                    
-        except Exception as e:
-            logger.error(f"Failed to initialize Gemini: {e}")
-            raise RuntimeError("Both OpenAI and Gemini failed to initialize")
-
-    def _load_documents_from_db(self) -> List[str]:
-        try:
-            conn = psycopg2.connect(
-                host=Config.DB_HOST,
-                dbname=Config.DB_NAME,
-                user=Config.DB_USER,
-                password=Config.DB_PASSWORD,
-                port=Config.DB_PORT
-            )
-            df = pd.read_sql_query("SELECT * FROM sub_org ORDER BY id", conn)
-            docs = []
-            for _, row in df.iterrows():
-                doc_parts = []
-                for col in df.columns:
-                    if pd.notna(row[col]) and str(row[col]).strip():
-                        doc_parts.append(f"{col}: {row[col]}")
-                if doc_parts:
-                    docs.append("; ".join(doc_parts))
-            conn.close()
-            return docs
-        except Exception as e:
-            logger.error(f"Error loading from database: {e}")
-            return []
-
-    def _chunk_documents(self, docs: List[str]) -> List[Document]:
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=Config.CHUNK_SIZE,
-            chunk_overlap=Config.CHUNK_OVERLAP
-        )
-        return splitter.create_documents(docs)
-
-    def query(self, question: str) -> Dict[str, Any]:
-        if not self._initialized:
-            return {"response": "Service not initialized.", "sources": 0}
-        
-        try:
-            retriever = self.vectorstore.as_retriever(
-                search_type="similarity",
-                search_kwargs={"k": Config.MAX_RETRIEVAL_DOCS}
-            )
-            relevant_docs = retriever.get_relevant_documents(question)
+            # Initialize services
+            logger.info("🚀 Initializing RAG Service...")
             
-            if relevant_docs:
-                # Create appropriate prompt based on the service being used
-                if self._using_openai:
-                    prompt = ChatPromptTemplate.from_messages([
-                        ("system", "You are a helpful AI assistant that answers questions based on provided context. Be direct and concise. If the context doesn't contain enough information, say so."),
-                        ("human", "Here is the context:\n{context}"),
-                        ("human", "Question: {input}"),
-                        ("assistant", "I'll help answer your question based on the context provided."),
-                        ("human", "Please provide your answer:")
-                    ])
+            # 1. Initialize database service
+            self.database_service = DatabaseService()
+            logger.info(f"📊 Database service initialized with {self.database_service.get_document_count()} documents")
+            
+            # 2. Initialize embedding service
+            self.embedding_service = EmbeddingService()
+            logger.info("🧠 Embedding service initialized")
+            
+            # 3. Initialize vector store
+            self.vector_store = VectorStore(self.embedding_service)
+            logger.info("🗄️ Vector store initialized")
+            
+            # 4. Initialize LLM service
+            self.llm_service = LLMService()
+            logger.info("🤖 LLM service initialized")
+            
+            # 5. Load documents into vector store
+            documents = self.database_service.get_documents()
+            if documents:
+                success = self.vector_store.add_documents(documents)
+                if success:
+                    logger.info(f"✅ Successfully loaded {len(documents)} documents into vector store")
                 else:
-                    # Gemini-specific prompt (no system message)
-                    prompt = ChatPromptTemplate.from_messages([
-                        ("human", "You are a helpful AI assistant that answers questions based on provided context. Be direct and concise. If the context doesn't contain enough information, say so.\n\nHere is the context:\n{context}\n\nQuestion: {input}\n\nPlease provide your answer:")
-                    ])
-                
-                combine_docs_chain = create_stuff_documents_chain(self.llm, prompt)
-                retrieval_chain = create_retrieval_chain(retriever, combine_docs_chain)
-                response = retrieval_chain.invoke({"input": question})
-                return {"response": response['answer'], "sources": len(relevant_docs)}
+                    logger.error("❌ Failed to load documents into vector store")
+                    return False
             else:
-                return {"response": "No relevant information found in the database.", "sources": 0}
-                
-        except RateLimitError as e:
-            logger.error(f"OpenAI rate limit exceeded: {e}")
-            if not self._using_openai:
-                return {"response": "Service temporarily unavailable due to rate limits. Please try again later.", "sources": 0}
+                logger.warning("⚠️ No documents to load into vector store")
             
-            # Try to fall back to Gemini
-            try:
-                logger.info("Attempting to fall back to Gemini due to OpenAI rate limit")
-                self._fallback_to_gemini()
-                # Retry the query with Gemini
-                return self.query(question)
-            except Exception as fallback_error:
-                logger.error(f"Fallback to Gemini failed: {fallback_error}")
-                return {"response": "Service temporarily unavailable due to rate limits. Please try again later.", "sources": 0}
-                
-        except APIError as e:
-            logger.error(f"OpenAI API error: {e}")
-            if not self._using_openai:
-                return {"response": "Service temporarily unavailable. Please try again later.", "sources": 0}
+            self._initialized = True
+            logger.info("🎉 RAG Service initialized successfully!")
+            return True
             
-            # Try to fall back to Gemini
-            try:
-                logger.info("Attempting to fall back to Gemini due to OpenAI API error")
-                self._fallback_to_gemini()
-                # Retry the query with Gemini
-                return self.query(question)
-            except Exception as fallback_error:
-                logger.error(f"Fallback to Gemini failed: {fallback_error}")
-                return {"response": "Service temporarily unavailable. Please try again later.", "sources": 0}
-                
         except Exception as e:
-            logger.error(f"Unexpected error in query: {e}")
-            return {"response": f"An error occurred while processing your request: {str(e)}", "sources": 0} 
+            logger.error(f"❌ Failed to initialize RAG Service: {e}")
+            return False
+    
+    def query(self, question: str, language: str = "auto") -> Dict[str, Any]:
+        """Process a query and return response"""
+        if not self._initialized:
+            return {
+                "response": "Service not initialized. Please try again.",
+                "sources": 0,
+                "error": "Service not initialized"
+            }
+        
+        try:
+            # 1. Search for relevant documents
+            relevant_docs = self.vector_store.search(question)
+            
+            # 2. Generate response
+            response = self.llm_service.generate_response(question, relevant_docs, language)
+            
+            # 3. Return result
+            return {
+                "response": response,
+                "sources": len(relevant_docs),
+                "timestamp": datetime.now().isoformat(),
+                "language": language
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error processing query: {e}")
+            return {
+                "response": "An error occurred while processing your request. Please try again.",
+                "sources": 0,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def query_with_scores(self, question: str, language: str = "auto") -> Dict[str, Any]:
+        """Process a query and return response with similarity scores"""
+        if not self._initialized:
+            return {
+                "response": "Service not initialized. Please try again.",
+                "sources": 0,
+                "error": "Service not initialized"
+            }
+        
+        try:
+            # 1. Search for relevant documents with scores
+            relevant_docs_with_scores = self.vector_store.search_with_scores(question)
+            
+            # 2. Extract just the documents for LLM
+            relevant_docs = [doc for doc, score in relevant_docs_with_scores]
+            
+            # 3. Generate response
+            response = self.llm_service.generate_response(question, relevant_docs, language)
+            
+            # 4. Return result with scores
+            return {
+                "response": response,
+                "sources": len(relevant_docs),
+                "scores": relevant_docs_with_scores,
+                "timestamp": datetime.now().isoformat(),
+                "language": language
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error processing query with scores: {e}")
+            return {
+                "response": "An error occurred while processing your request. Please try again.",
+                "sources": 0,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def refresh_data(self) -> bool:
+        """Refresh data from database"""
+        try:
+            if self.database_service:
+                success = self.database_service.refresh_documents()
+                if success:
+                    # Reload documents into vector store
+                    documents = self.database_service.get_documents()
+                    if documents:
+                        return self.vector_store.add_documents(documents)
+                return success
+            return False
+        except Exception as e:
+            logger.error(f"❌ Error refreshing data: {e}")
+            return False
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get service status and statistics"""
+        try:
+            status = {
+                "initialized": self._initialized,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            if self._initialized:
+                # Database status
+                if self.database_service:
+                    status["database"] = {
+                        "document_count": self.database_service.get_document_count(),
+                        "has_database_config": Config.get_database_config() is not None
+                    }
+                
+                # Vector store status
+                if self.vector_store:
+                    status["vector_store"] = self.vector_store.get_collection_info()
+                
+                # LLM status
+                if self.llm_service:
+                    status["llm"] = self.llm_service.get_model_info()
+                
+                # Embedding service status
+                if self.embedding_service:
+                    status["embedding"] = {
+                        "cache_size": self.embedding_service.get_cache_size(),
+                        "connection_test": self.embedding_service.test_connection()
+                    }
+            
+            return status
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting status: {e}")
+            return {
+                "initialized": self._initialized,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def switch_llm(self, use_openai: bool = True) -> bool:
+        """Switch between OpenAI and Gemini LLM"""
+        if self.llm_service:
+            return self.llm_service.switch_model(use_openai)
+        return False
+    
+    def clear_cache(self) -> None:
+        """Clear embedding cache"""
+        if self.embedding_service:
+            self.embedding_service.clear_cache()
+    
+    def reset_vector_store(self) -> bool:
+        """Reset vector store (clear all documents)"""
+        if self.vector_store:
+            return self.vector_store.reset_collection()
+        return False 
