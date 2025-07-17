@@ -1,17 +1,16 @@
-# Multi-Database RAG Agent with Routing
+# MPWT Assistant - RAG Chatbot
 
-An intelligent Retrieval-Augmented Generation (RAG) agent that automatically routes queries to specialized databases and provides accurate responses with web search fallback.
+An intelligent Retrieval-Augmented Generation (RAG) chatbot for the Ministry of Public Works and Transport (MPWT) of Cambodia. This system provides accurate information about government departments, services, and organizational structure using advanced AI technology.
 
 ## 🚀 Features
 
-- 🎯 **Intelligent Query Routing** - Automatically determines the best database for each query
-- 📚 **Multi-Database Support** - Products, Support, and Finance specialized databases
-- 🤖 **Advanced RAG Pipeline** - Uses OpenAI embeddings and LLM for high-quality responses
-- 🔍 **Vector Similarity Search** - Powered by Qdrant vector database for semantic retrieval
-- 🌐 **Web Search Fallback** - DuckDuckGo integration when no relevant documents found
-- 📄 **PDF Document Processing** - Upload and process multiple PDF documents
-- 💬 **Interactive Chat Interface** - Clean Streamlit UI with real-time routing information
-- 📊 **Status Monitoring** - Real-time system health and database status
+- 🏛️ **MPWT-Specific Knowledge** - Specialized for Ministry of Public Works and Transport data
+- 🤖 **Advanced RAG Pipeline** - Uses Gemini embeddings and GPT-4o-mini for high-quality responses
+- 🔍 **Vector Similarity Search** - Powered by ChromaDB for semantic document retrieval
+- 💬 **Clean Chat Interface** - Minimalistic Gradio UI for seamless interaction
+- 📊 **Database Integration** - Connects to PostgreSQL database or uses sample data
+- 🌐 **Multi-Language Support** - English and Khmer language responses
+- 📄 **Document Processing** - Handles structured organizational data
 
 ## 🏗️ Architecture
 
@@ -19,22 +18,29 @@ The application follows a modular architecture:
 
 ```
 📁 Project Structure
-├── app.py              # Streamlit web interface
-├── rag_service.py      # Core RAG service with all components
-├── config.py           # Configuration and settings
-├── start.py            # Startup script
-├── requirements.txt    # Python dependencies
-├── .env                # Environment variables (you create this)
-└── README.md           # This file
+├── main.py              # Main entry point
+├── ui.py                # Gradio web interface
+├── rag_service.py       # Core RAG service orchestrator
+├── llm.py              # LLM service (OpenAI & Gemini)
+├── embedding.py         # Embedding service (Gemini)
+├── vectorstore.py       # ChromaDB vector store
+├── database.py          # Database service
+├── config.py            # Configuration and settings
+├── chatbot_prompt.py    # MPWT-specific prompt templates
+├── requirements.txt     # Python dependencies
+├── .env                 # Environment variables (you create this)
+├── data/                # ChromaDB data storage
+└── README.md            # This file
 ```
 
 ### Key Components
 
-1. **DocumentProcessor** - Handles PDF processing and text chunking
-2. **QueryRouter** - Routes queries using vector similarity + LLM fallback
-3. **ResponseGenerator** - Generates responses from retrieved documents
-4. **WebSearchAgent** - Provides web search fallback using LangGraph
+1. **DatabaseService** - Handles data loading from PostgreSQL or sample data
+2. **EmbeddingService** - Manages Gemini embeddings with caching
+3. **VectorStore** - ChromaDB-based document storage and retrieval
+4. **LLMService** - OpenAI and Gemini integration for response generation
 5. **RAGService** - Orchestrates all components
+6. **GradioUI** - Clean, minimalistic web interface
 
 ## 🛠️ Quick Start
 
@@ -49,88 +55,78 @@ pip install -r requirements.txt
 Create a `.env` file in the project root:
 
 ```env
-# OpenAI Configuration (Required)
+# Required API Keys
+GEMINI_API_KEY=your_gemini_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
 
-# Qdrant Configuration (Required) 
-QDRANT_URL=https://your-cluster.qdrant.tech
-QDRANT_API_KEY=your_qdrant_api_key_here
+# Database Configuration (Optional)
+DB_HOST=localhost
+DB_NAME=your_database_name
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_PORT=5432
 ```
 
 ### 3. Run the Application
 
-Using the startup script:
 ```bash
-python start.py
+python main.py
 ```
 
-Or directly with Streamlit:
-```bash
-streamlit run app.py
-```
+The application will be available at http://localhost:7860
 
-The application will be available at http://localhost:8501
+## 📋 Data Sources
 
-## 📋 Database Collections
+The system can work with two data sources:
 
-The system supports three specialized databases:
+### 🗄️ PostgreSQL Database
+- **Table**: `sub_org` with organizational data
+- **Fields**: id, en_name, kh_name, description, category, etc.
+- **Setup**: Configure database connection in `.env` file
 
-### 🛍️ Products Database
-- **Purpose**: Product information, specifications, features
-- **Use Cases**: Product manuals, specifications, feature details
-- **Routing Triggers**: "product", "features", "specifications", "manual"
-
-### 🆘 Support Database  
-- **Purpose**: Customer support, FAQs, troubleshooting guides
-- **Use Cases**: Help documentation, troubleshooting, customer service
-- **Routing Triggers**: "help", "support", "troubleshooting", "guide", "FAQ"
-
-### 💰 Finance Database
-- **Purpose**: Financial data, reports, costs, revenue
-- **Use Cases**: Financial reports, pricing, revenue data, investments
-- **Routing Triggers**: "cost", "price", "revenue", "financial", "budget"
+### 📋 Sample Data
+- **Fallback**: Pre-loaded sample government organization data
+- **Content**: 15 sample ministries and departments
+- **Usage**: Automatically used if no database connection
 
 ## 🔄 How It Works
 
 ### Query Processing Flow
 
-1. **Query Input** - User enters a question
-2. **Vector Routing** - System searches all databases for similarity scores
-3. **Confidence Check** - If confidence > threshold, route to best database
-4. **LLM Fallback** - If low confidence, use LLM-based routing
-5. **Document Retrieval** - Retrieve relevant documents from chosen database
-6. **Response Generation** - Generate answer using retrieved context
-7. **Web Search Fallback** - If no relevant documents, use web search
+1. **Query Input** - User enters a question in the chat interface
+2. **Embedding Generation** - Query is converted to vector using Gemini
+3. **Vector Search** - System searches ChromaDB for similar documents
+4. **Context Retrieval** - Relevant documents are retrieved based on similarity
+5. **Response Generation** - LLM generates answer using retrieved context
+6. **Conversational Handling** - Greetings and casual queries are handled appropriately
 
-### Routing Logic
+### RAG Pipeline
 
 ```python
-# Vector Similarity Routing (Primary)
-best_score = max(similarity_scores_across_databases)
-if best_score >= confidence_threshold:
-    return best_database
+# 1. Query Processing
+query_embedding = embedding_service.get_embedding(query)
 
-# LLM Routing (Fallback)
-routing_decision = llm_agent.analyze(query)
-return routing_decision
+# 2. Vector Search
+relevant_docs = vector_store.search(query_embedding)
 
-# Web Search (Last Resort)
-if no_suitable_database:
-    return web_search_results
+# 3. Response Generation
+response = llm_service.generate_response(query, relevant_docs)
+
+# 4. Return Result
+return {"response": response, "sources": len(relevant_docs)}
 ```
 
 ## 🔧 Configuration
 
 ### API Keys Required
 
-- **OpenAI API Key**: Get from [OpenAI Platform](https://platform.openai.com/api-keys)
-  - Used for embeddings (`text-embedding-3-small`)
-  - Used for chat completions (`gpt-4o`)
-  - Used for query routing agent
+- **Gemini API Key**: Get from [Google AI Studio](https://makersuite.google.com/app/apikey)
+  - Used for embeddings (`models/embedding-001`)
+  - Used for chat completions (`gemini-1.5-flash`)
 
-- **Qdrant API Key**: Get from [Qdrant Cloud](https://cloud.qdrant.io/)
-  - Vector database for document storage
-  - Semantic similarity search
+- **OpenAI API Key**: Get from [OpenAI Platform](https://platform.openai.com/api-keys)
+  - Used for chat completions (`gpt-4o-mini`)
+  - Fallback LLM option
 
 ### Advanced Configuration
 
@@ -138,89 +134,84 @@ Edit `config.py` to customize:
 
 ```python
 # Model Settings
-EMBEDDING_MODEL = "text-embedding-3-small"
-CHAT_MODEL = "gpt-4o" 
-LLM_TEMPERATURE = 0
+EMBEDDING_MODEL = "models/embedding-001"  # Gemini
+CHAT_MODEL = "gpt-4o-mini"               # OpenAI
+LLM_TEMPERATURE = 0.7
 
 # Document Processing
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 
 # Retrieval Settings
-MAX_RETRIEVAL_DOCS = 4
-SIMILARITY_THRESHOLD = 0.5
+MAX_RETRIEVAL_DOCS = 5
+SIMILARITY_THRESHOLD = 0.1
+
+# ChromaDB Settings
+CHROMADB_DIR = './data/chromadb'
+COLLECTION_NAME = 'sub_orgs_collection'
 ```
 
 ## 📖 Usage Guide
 
-### 1. Initialize the Service
+### 1. Start the Application
 
-1. Open the application
-2. Enter your API keys in the sidebar
-3. Click "🚀 Initialize Service"
-4. Wait for successful initialization
+1. Run `python main.py`
+2. Wait for initialization messages
+3. Open browser to http://localhost:7860
 
-### 2. Upload Documents
+### 2. Start Chatting
 
-1. Go to the "Document Management" section
-2. Select the appropriate database tab
-3. Upload PDF files
-4. Click "Process Documents"
-
-### 3. Start Chatting
-
-1. Type your question in the chat input
-2. Watch the routing decision in real-time
-3. View the response with source information
-4. See which database was used
+1. Type your question in the input box
+2. Press Enter or click Send
+3. View the AI-generated response
+4. See source count if relevant documents were found
 
 ### Example Queries
 
-**Products Database:**
-- "What are the specifications of the new laptop?"
-- "Tell me about the features of product X"
-- "Where can I find the user manual?"
+**General Questions:**
+- "What departments are there?"
+- "Tell me about the General Department of Techniques"
+- "What does the Ministry of Public Works and Transport do?"
 
-**Support Database:**
-- "How do I troubleshoot connection issues?"
-- "What should I do if the system crashes?"
-- "Where can I find installation guides?"
+**Specific Information:**
+- "What is the role of the General Department of Administration and Finance?"
+- "List all general departments"
+- "What are the responsibilities of the Planning and Policy department?"
 
-**Finance Database:**
-- "What was our revenue last quarter?"
-- "Show me the cost breakdown for project Y"
-- "What are the pricing details for service Z?"
+**Conversational:**
+- "Hello" or "Hi" - Gets a friendly introduction
+- "What can you help me with?" - Shows available capabilities
 
 ## 🔍 Troubleshooting
 
 ### Common Issues
 
 **"Service not initialized"**
-- Check that all API keys are entered correctly
-- Verify Qdrant URL format (should include https://)
-- Check internet connection
+- Check that API keys are set in `.env` file
+- Verify internet connection
+- Check console for initialization errors
 
-**"Failed to connect to Qdrant"**
-- Verify Qdrant URL and API key
-- Check if your Qdrant cluster is running
-- Ensure proper network access
+**"No relevant information found"**
+- The system will politely redirect to MPWT topics
+- Try asking about specific departments or services
+- Check if database has the information you're looking for
 
-**"No relevant documents found"**
-- Upload more documents to the databases
-- Try rephrasing your question
-- System will automatically fall back to web search
+**"Failed to connect to database"**
+- Verify database credentials in `.env`
+- System will automatically use sample data as fallback
+- Check PostgreSQL service is running
 
-**Routing not working properly**
-- Check that documents are uploaded to correct databases
-- Try more specific keywords in your queries
-- Review routing triggers in database descriptions
+**Enter key not working**
+- Make sure you're using the latest version
+- Try clicking the Send button as alternative
+- Check browser console for JavaScript errors
 
 ### Getting Help
 
-1. Check the sidebar status indicators
-2. Look at console output for detailed error messages  
-3. Verify all environment variables are set correctly
-4. Make sure all required dependencies are installed
+1. Check the console output for detailed error messages
+2. Verify all environment variables are set correctly
+3. Make sure all required dependencies are installed
+4. Restart the application if needed
 
 ## 🧪 Development
 
@@ -228,53 +219,53 @@ SIMILARITY_THRESHOLD = 0.5
 
 ```
 rag_service.py
-├── DocumentProcessor     # PDF processing and chunking
-├── QueryRouter          # Query routing logic
-├── ResponseGenerator    # Response generation from docs
-├── WebSearchAgent      # Web search fallback
+├── DatabaseService     # Data loading and management
+├── EmbeddingService    # Gemini embeddings
+├── VectorStore         # ChromaDB operations
+├── LLMService          # OpenAI/Gemini integration
 └── RAGService          # Main orchestrator
 
-app.py
-├── init_session_state()      # Session management
-├── display_sidebar()         # Configuration UI
-├── display_document_upload() # Document management UI
-└── display_chat_interface()  # Chat interface
+ui.py
+├── GradioUI            # Web interface class
+├── create_interface()  # UI layout
+├── chat_response()     # Chat handling
+└── launch()           # Application startup
 ```
 
-### Adding New Databases
+### Adding New Features
 
-1. Update `config.py` with new database configuration
-2. Add routing logic in `QueryRouter`
-3. Update UI tabs in `display_document_upload()`
+1. **New Data Sources**: Update `DatabaseService` to connect to additional databases
+2. **Custom Prompts**: Modify `chatbot_prompt.py` for different use cases
+3. **UI Enhancements**: Extend `ui.py` with additional Gradio components
+4. **LLM Integration**: Add new models in `llm.py`
 
-### Customizing Routing
+### Customizing Responses
 
-Edit the routing agent instructions in `QueryRouter._create_routing_agent()`:
+Edit the prompt templates in `chatbot_prompt.py`:
 
 ```python
-instructions=[
-    "Your custom routing rules here",
-    "1. For topic X → return 'database_name'",
-    "2. For topic Y → return 'other_database'",
-    # ...
-]
+SYSTEM_TEMPLATE = """
+You are MPWT Assistant, an advanced AI system for the Ministry of Public Works and Transport of Cambodia.
+
+[Your custom instructions here]
+"""
 ```
 
 ## 📚 Dependencies
 
 ### Core Frameworks
-- **Streamlit**: Web interface
+- **Gradio**: Web interface
 - **LangChain**: RAG pipeline and document processing
-- **LangGraph**: Agent framework for web search
+- **ChromaDB**: Vector database
 
 ### AI/ML Services  
-- **OpenAI**: Embeddings and chat completions
-- **Qdrant**: Vector database
-- **Agno**: Agent framework for routing
+- **Google Gemini**: Embeddings and chat completions
+- **OpenAI**: Chat completions (fallback)
+- **PostgreSQL**: Database storage (optional)
 
 ### Document Processing
-- **PyPDF**: PDF text extraction
-- **RecursiveCharacterTextSplitter**: Text chunking
+- **psycopg2**: PostgreSQL database adapter
+- **pandas**: Data manipulation
 
 ## 📄 License
 
@@ -282,4 +273,4 @@ This project is open source. Feel free to use, modify, and distribute.
 
 ---
 
-**Ready to use!** Just run `python start.py` and start chatting with your intelligent RAG agent. 🚀 
+**Ready to use!** Just run `python main.py` and start chatting with your MPWT Assistant. 🚀 
