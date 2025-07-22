@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+        document.getElementById('content').innerHTML =
+          marked.parse('# Marked in the browser\n\nRendered by **marked**.');
+      </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .chat-container {
+            scrollbar-width: thin;
+            scrollbar-color: #CBD5E0 #F7FAFC;
+        }
+
+        .chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-container::-webkit-scrollbar-track {
+            background: #F7FAFC;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background-color: #CBD5E0;
+            border-radius: 4px;
+        }
+
+        .message-transition {
+            transition: all 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex flex-col">
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <img src="{{ url_for('static', path='images/logo/camPOS_v2.png') }}" alt="CamCyber Logo" class="h-12 w-auto">
+                    <div>
+                        <h1 class="text-xl font-semibold text-gray-800">POS Assistant</h1>
+                        <p class="text-sm text-gray-500">By CamCyber Digital Team</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="newChatBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        New Chat
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+            <div class="bg-white rounded-xl shadow-sm h-[calc(100vh-12rem)] flex flex-col">
+                <div id="chatMessages" class="flex-1 overflow-y-auto p-6 chat-container">
+                    <div class="flex items-start space-x-4 mb-6 message-transition">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                <i class="fas fa-robot text-blue-600"></i>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <p class="text-gray-800">Hello! I'm POS Assistant. How can I help you today with your POS system?</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Chat Buttons -->
+                <div class="flex justify-end space-x-2 p-2">
+                    <button class="quick-chat-btn bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full shadow-sm" data-message="Total Sell Today">
+                        Sell Today
+                    </button>
+                    <button class="quick-chat-btn bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full shadow-sm" data-message="Info Product">
+                        Info Product
+                    </button>
+                    <button class="quick-chat-btn bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full shadow-sm" data-message="Add a new product to the database.">
+                        Add Product
+                    </button>
+                    <button class="quick-chat-btn bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full shadow-sm" data-message="Total Sales All Time">
+                        Total Sell
+                    </button>
+                </div>
+
+                <div class="border-t p-4">
+                    <div class="relative">
+                        <!-- File Upload Button -->
+                        <label for="fileUpload" class="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-600 hover:text-gray-700 p-2 cursor-pointer">
+                            <i class="fas fa-paperclip text-lg"></i>
+                            <input type="file" id="fileUpload" class="hidden" accept="*/*" multiple>
+                        </label>
+                
+                        <!-- Message Input -->
+                        <input type="text" 
+                               id="messageInput"
+                               placeholder="Type your message..." 
+                               class="w-full rounded-lg border border-gray-300 px-10 py-3 pr-16 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        >
+                
+                        <!-- Send Button -->
+                        <button id="sendButton" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-600 hover:text-blue-700 p-2">
+                            <i class="fas fa-paper-plane text-lg"></i>
+                        </button>
+                    </div>
+                
+                    <!-- Multi-file Preview Box -->
+                    <div id="filePreview" class="border border-green-500 rounded-lg p-2 mt-3 space-y-2 hidden">
+                        <!-- Files will be dynamically added here -->
+                    </div>
+                
+                    <div class="mt-2 text-xs text-gray-500 flex items-center justify-between">
+                        <span>Press Enter to send</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+
+        let uploadedFiles = [];
+        const collectionName = "pos_files";
+
+        async function uploadFilesToChroma() {
+            const collectionName = document.getElementById('collectionNameInput').value;
+        
+            for (const file of uploadedFiles) {
+                const formData = new FormData();
+                formData.append('file', file);
+        
+                try {
+                    const response = await fetch(`/api/v1/chroma/upload/document?collection_name=${collectionName}`, {
+                        method: 'POST',
+                        body: formData
+                    });
+        
+                    const result = await response.json();
+        
+                    if (!response.ok) {
+                        console.error(`Failed to upload ${file.name}:`, result);
+                    } else {
+                        console.log(`Uploaded ${file.name} successfully`, result);
+                    }
+                } catch (error) {
+                    console.error(`Error uploading ${file.name}:`, error);
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const messageInput = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            const chatMessages = document.getElementById('chatMessages');
+            const newChatBtn = document.getElementById('newChatBtn');
+            
+            //  File Upload Elements
+            const fileUpload = document.getElementById('fileUpload');
+            const filePreview = document.getElementById('filePreview');
+            const fileName = document.getElementById('fileName');
+            const removeFileBtn = document.getElementById('removeFileBtn');
+            const collectionNameInput = document.getElementById('collectionNameInput');
+            const collectionName = collectionNameInput ? collectionNameInput.value : 'pos_files';
+            
+
+            let currentThreadId = null;
+            let isProcessing = false;
+
+            const savedThreadId = localStorage.getItem('currentThreadId');
+            if (savedThreadId) {
+                currentThreadId = savedThreadId;
+            }
+
+            // Show preview when file is selected
+            fileUpload.addEventListener('change', (event) => {
+                const files = Array.from(event.target.files);
+                if (files.length > 0) {
+                    uploadedFiles = uploadedFiles.concat(files);
+                    updateFilePreview();
+                }
+            });
+            
+            function updateFilePreview() {
+                filePreview.innerHTML = ''; // Clear old previews
+            
+                uploadedFiles.forEach((file, index) => {
+                    const fileElement = document.createElement('div');
+                    fileElement.className = 'flex items-center justify-between bg-gray-50 p-2 rounded-md border border-green-300';
+            
+                    if (file.type.startsWith("image/")) {
+                        // Show image preview
+                        const reader = new FileReader();
+                        reader.onload = function (e) {
+                            fileElement.innerHTML = `
+                                <div class="flex items-center space-x-2">
+                                    <img src="${e.target.result}" class="w-16 h-16 object-cover rounded-md">
+                                    <span class="text-sm text-gray-700 truncate">${file.name}</span>
+                                </div>
+                                <button class="remove-file-btn text-red-500 hover:text-red-700" data-index="${index}">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            `;
+                            filePreview.appendChild(fileElement);
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        // Show file name for other files
+                        fileElement.innerHTML = `
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-file-alt text-gray-500"></i>
+                                <span class="text-sm text-gray-700 truncate">${file.name}</span>
+                            </div>
+                            <button class="remove-file-btn text-red-500 hover:text-red-700" data-index="${index}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        `;
+                        filePreview.appendChild(fileElement);
+                    }
+                });
+        
+                filePreview.classList.toggle("hidden", uploadedFiles.length === 0);
+            
+                // Add event listeners to remove buttons
+                document.querySelectorAll('.remove-file-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const index = button.getAttribute('data-index');
+                        uploadedFiles.splice(index, 1);
+                        updateFilePreview();
+                    });
+                });
+            }
+            
+            function removeFile(index) {
+                uploadedFiles.splice(index, 1);
+                updateFilePreview();
+            }
+
+            document.querySelectorAll('.quick-chat-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const quickMessage = button.getAttribute('data-message');
+                    sendMessage(quickMessage);
+                });
+            });
+
+            function addMessage(message, isUser = false) {
+                const messageHTML = `
+                    <div class="flex items-start space-x-4 mb-6 message-transition">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 rounded-full ${isUser ? 'bg-gray-200' : 'bg-blue-100'} flex items-center justify-center">
+                                <i class="fas ${isUser ? 'fa-user' : 'fa-robot'} ${isUser ? 'text-gray-600' : 'text-blue-600'}"></i>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="${isUser ? 'bg-blue-50' : 'bg-gray-50'} rounded-lg p-4">
+                                <p class="text-gray-800">${message}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                chatMessages.insertAdjacentHTML('beforeend', messageHTML);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            function addErrorMessage(error) {
+                const messageHTML = `
+                    <div class="flex items-start space-x-4 mb-6 message-transition">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                                <i class="fas fa-exclamation-triangle text-red-600"></i>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="bg-red-50 rounded-lg p-4">
+                                <p class="text-red-800">${error}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                chatMessages.insertAdjacentHTML('beforeend', messageHTML);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            async function sendMessage(message) {
+                if (isProcessing || (!message.trim() && uploadedFiles.length === 0)) return;
+
+                try {
+                    isProcessing = true;
+                    messageInput.disabled = true;
+                    sendButton.disabled = true;
+                                                               
+                    // Upload files to Chroma
+                    if (uploadedFiles.length > 0) {
+                        await uploadFilesToChroma();
+                        uploadedFiles = [];
+                        updateFilePreview(); //Reset the file preview
+                    }
+
+                    if (!message.trim()){
+                        isProcessing = false;
+                        messageInput.disabled = false;
+                        sendButton.disabled = false;
+                        return; // Stop if no message to send
+                    }
+
+                    addMessage(message, true);
+                    messageInput.value = '';
+
+                    const formData = new FormData();
+                    formData.append('messages', message);
+
+                    if (currentThreadId) {
+
+                        formData.append('thread_id', currentThreadId);
+                    }
+                    
+                    // If you have an image file to send
+                    uploadedFiles.forEach((file) => {
+
+                        formData.append('files[]', file);
+
+                    });
+                    
+                    const response = await fetch('/api/v1/assistant/chat', {
+                        method: 'POST',
+                        //headers: {
+                        //    'Content-Type': 'application/json',
+                        //},
+                        body: formData
+                        // body: JSON.stringify({
+                        //    messages: [message],
+                        //    thread_id: currentThreadId
+                        //}) 
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.status && data.data) {
+                        if (data.data.thread_id) {
+                            currentThreadId = data.data.thread_id;
+                            localStorage.setItem('currentThreadId', currentThreadId);
+                        }
+                        
+                        if (data.data.response) {
+                            const formattedResponse = marked.parse(data.data.response);
+                            //const formattedResponse = data.data.response.replace(/(?:\r\n|\r|\n)/g, '<br>');
+                            addMessage(formattedResponse);
+                        }
+                    } else {
+                        addErrorMessage('Failed to process your request.');
+                    }
+                } catch (error) {
+                    addErrorMessage(error.message || 'Failed to connect to the server');
+                } finally {
+                    isProcessing = false;
+                    messageInput.disabled = false;
+                    sendButton.disabled = false;
+                    messageInput.focus();
+                }
+            }
+
+            sendButton.addEventListener('click', () => sendMessage(messageInput.value));
+            
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage(messageInput.value);
+                }
+            });
+
+            newChatBtn.addEventListener('click', () => {
+                currentThreadId = null;
+                localStorage.removeItem('currentThreadId');
+                chatMessages.innerHTML = `
+                    <div class="flex items-start space-x-4 mb-6 message-transition">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                <i class="fas fa-robot text-blue-600"></i>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <p class="text-gray-800">Hello! I'm POS Assistant. How can I help you today with your POS system?</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    </script>
+</body>
+</html>

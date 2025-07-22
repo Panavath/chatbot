@@ -1,0 +1,27 @@
+services:
+  chromadb:
+    image: chromadb/chroma:0.5.13
+    volumes:
+      - ./chromadb:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma 
+      - ANONYMIZED_TELEMETRY=TRUE
+    ports:
+      - 8000:8000
+    networks:
+      - camcyber_network
+
+  # ai:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - 8085:8085  
+  #   user: "${UID:-1000}:${GID:-1000}" 
+  #   networks:
+  #     - camcyber_network
+
+networks:
+  camcyber_network:
+    driver: bridge

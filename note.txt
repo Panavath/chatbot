@@ -1,0 +1,31 @@
+# this command show how to run ai model application and setup virtual environment 
+
+pip install poetry
+poetry install
+poetry config virtualenvs.in-project true
+poetry install
+poetry shell (activate poetry venv)
+peotry add request (add request library)
+peotry remove request (remove request)
+
+poetry run uvicorn main:app --reload
+poetry run uvicorn main:app --host 127.0.0.1 --port 8085 --reload
+
+
+
+poetry run chroma run --host 127.0.0.1 --port 8000
+
+
+
+sqlalchemy.url =  ${DATABASE_URL}
+poetry add alembic
+alembic init alembic
+check file alembic.ini
+change sqlalchemy.url = driver://user:pass@localhost/dbname
+alembic revision --autogenerate -m "Initial migration"
+alembic upgrade head
+
+Remove-Item -Recurse -Force alembic
+Remove-Item alembic.ini
+
+

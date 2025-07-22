@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "ai"
+version = "1.0.0"
+description = "This is a fun project for customizing to enable the capacibilities of LLM System with real world applications."
+authors = ["Vannuth <venvannuth@gamil.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+chromadb = {extras = ["server"], version = "^0.6.3"}
+langchain = "^0.3.13"
+openai = "^1.58.1"
+langchain-openai = "^0.2.14"
+langchain-core = "^0.3.28"
+langchain-community = "^0.3.13"
+langchain-google-community = "^2.0.3"
+langchain-text-splitters = "^0.3.4"
+langgraph = "^0.2.60"
+loguru = "^0.7.3"
+jinja2 = "^3.1.5"
+aiofiles = "^24.1.0"
+google-generativeai = "^0.8.3"
+langchain-chroma = "^0.2.1"
+python-decouple = "^3.8"
+psycopg2 = "^2.9.10"
+python-multipart = "^0.0.20"
+pymysql = "^1.1.1"
+alembic = "^1.14.1"
+pandas = "^2.2.3"
+pydantic = {extras = ["email"], version = "^2.10.6"}
+unstructured = "^0.16.23"
+psycopg2-binary = "^2.9.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,17 @@
+# Secret env
+.env
+# DS Store
+.DS_Store
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Ignore logs
+logs/
+
+chroma.log
+
+poetry.lock
+# Ignore database
+alembic.ini
+alembic/
