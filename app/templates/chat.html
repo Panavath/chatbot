@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS Assistant</title>
+    <title>MPWT Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
@@ -47,10 +47,10 @@
         <header class="bg-white shadow-sm">
             <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                    <img src="{{ url_for('static', path='images/logo/camPOS_v2.png') }}" alt="CamCyber Logo" class="h-12 w-auto">
+                    <!-- <img src="{{ url_for('static', path='images/logo/camPOS_v2.png') }}" alt="CamCyber Logo" class="h-12 w-auto"> -->
                     <div>
-                        <h1 class="text-xl font-semibold text-gray-800">POS Assistant</h1>
-                        <p class="text-sm text-gray-500">By CamCyber Digital Team</p>
+                        <h1 class="text-xl font-semibold text-gray-800">MPWT Assistant</h1>
+                        <p class="text-sm text-gray-500">By us</p>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
@@ -72,7 +72,7 @@
                         </div>
                         <div class="flex-1">
                             <div class="bg-gray-50 rounded-lg p-4">
-                                <p class="text-gray-800">Hello! I'm POS Assistant. How can I help you today with your POS system?</p>
+                                <p class="text-gray-800">Hello! I'm MPWT Assistant. How can I help you today with MPWT information?</p>
                             </div>
                         </div>
                     </div>
@@ -80,17 +80,17 @@
 
                 <!-- Quick Chat Buttons -->
                 <div class="flex justify-end space-x-2 p-2">
-                    <button class="quick-chat-btn bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full shadow-sm" data-message="Total Sell Today">
-                        Sell Today
+                    <button class="quick-chat-btn bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full shadow-sm" data-message="មន្ត្រីក្រសួងសាធារណការនិងដឹកជញ្ជូនបច្ចុប្បន្នគឺជានរណា?">
+                        អគ្គមន្ត្រីបច្ចុប្បន្ន
                     </button>
-                    <button class="quick-chat-btn bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full shadow-sm" data-message="Info Product">
-                        Info Product
+                    <button class="quick-chat-btn bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full shadow-sm" data-message="Tell me about MPWT sub-organizations">
+                        Sub-Organizations
                     </button>
-                    <button class="quick-chat-btn bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full shadow-sm" data-message="Add a new product to the database.">
-                        Add Product
+                    <button class="quick-chat-btn bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full shadow-sm" data-message="Tell me about MPWT">
+                        About MPWT
                     </button>
-                    <button class="quick-chat-btn bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full shadow-sm" data-message="Total Sales All Time">
-                        Total Sell
+                    <button class="quick-chat-btn bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full shadow-sm" data-message="What are MPWT's main functions?">
+                        MPWT Functions
                     </button>
                 </div>
 
@@ -131,7 +131,7 @@
     <script>
 
         let uploadedFiles = [];
-        const collectionName = "pos_files";
+        const collectionName = "mpwt_files";
 
         async function uploadFilesToChroma() {
             const collectionName = document.getElementById('collectionNameInput').value;
@@ -171,7 +171,7 @@
             const fileName = document.getElementById('fileName');
             const removeFileBtn = document.getElementById('removeFileBtn');
             const collectionNameInput = document.getElementById('collectionNameInput');
-            const collectionName = collectionNameInput ? collectionNameInput.value : 'pos_files';
+                            const collectionName = collectionNameInput ? collectionNameInput.value : 'mpwt_files';
             
 
             let currentThreadId = null;
@@ -389,7 +389,7 @@
                         </div>
                         <div class="flex-1">
                             <div class="bg-gray-50 rounded-lg p-4">
-                                <p class="text-gray-800">Hello! I'm POS Assistant. How can I help you today with your POS system?</p>
+                                <p class="text-gray-800">Hello! I'm MPWT Assistant. How can I help you today with MPWT information?</p>
                             </div>
                         </div>
                     </div>

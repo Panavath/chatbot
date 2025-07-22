@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     API_V1_STR              : str   = "/api/v1"
 
-    API_NAME                : str   = "LLM-Agent"
+    API_NAME                : str   = "MPWT-Assistant"
     API_VERSION             : str   = "1.0"
     MODEL_NAME              : str   = config('MODEL_NAME')
 

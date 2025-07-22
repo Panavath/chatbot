@@ -1,6 +1,6 @@
-# Chatbot-API
-This is for fun only with creating large language model chat agent.
+# MPWT Assistant API
+This is an AI assistant system for the Ministry of Public Works and Transport (MPWT).
 
 # This is demo
 
-![CamCyber POS Logo](app/assets/images/chat_ui.png)
+![CamCyber MPWT Logo](app/assets/images/chat_ui.png)
